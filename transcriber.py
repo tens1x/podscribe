@@ -4,8 +4,14 @@ from http import HTTPStatus
 from dashscope.audio.asr import Transcription
 
 
-def transcribe_audio(audio_url: str, language: str = 'zh') -> str:
-    print('Submitting transcription task...')
+def transcribe_audio(audio_url: str, language: str = 'zh') -> dict:
+    """Transcribe audio and return full result with timestamps.
+
+    Returns dict with keys:
+        - text: full transcribed text
+        - sentences: list of {begin_time, end_time, text} dicts (times in ms)
+    """
+    print('  Submitting transcription task...')
     task_response = Transcription.async_call(
         model='paraformer-v2',
         file_urls=[audio_url],
@@ -19,19 +25,17 @@ def transcribe_audio(audio_url: str, language: str = 'zh') -> str:
         )
 
     task_id = task_response.output.task_id
-    print(f'Task submitted. Task ID: {task_id}')
-    print('Waiting for transcription to complete...')
+    print(f'  Task ID: {task_id}')
 
-    # Poll every 5 seconds with progress feedback
     while True:
         time.sleep(5)
         result = Transcription.fetch(task=task_id)
         status = result.output.task_status
-        print(f'\rTranscription status: {status}', end='', flush=True)
+        print(f'\r  Status: {status}', end='', flush=True)
 
         if status == 'SUCCEEDED':
             print()
-            return _extract_text(result)
+            return _extract_result(result)
         elif status == 'FAILED':
             print()
             raise RuntimeError(
@@ -39,7 +43,8 @@ def transcribe_audio(audio_url: str, language: str = 'zh') -> str:
             )
 
 
-def _extract_text(result) -> str:
+def _extract_result(result) -> dict:
+    """Extract text and sentence-level timestamps from transcription result."""
     results = result.output.get('results')
     if not results:
         raise RuntimeError('No transcription results returned')
@@ -53,10 +58,18 @@ def _extract_text(result) -> str:
     transcript_data = resp.json()
 
     full_text = ''
+    all_sentences = []
+
     for transcript in transcript_data.get('transcripts', []):
         full_text += transcript.get('text', '')
+        for sentence in transcript.get('sentences', []):
+            all_sentences.append({
+                'begin_time': sentence.get('begin_time', 0),
+                'end_time': sentence.get('end_time', 0),
+                'text': sentence.get('text', ''),
+            })
 
     if not full_text:
         raise RuntimeError('Transcription result is empty')
 
-    return full_text
+    return {'text': full_text, 'sentences': all_sentences}
