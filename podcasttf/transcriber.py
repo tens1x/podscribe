@@ -53,7 +53,10 @@ def _extract_result(result) -> dict:
     if not transcription_url:
         raise RuntimeError('No transcription URL in result')
 
-    resp = requests.get(transcription_url, timeout=30)
+    resp = requests.get(
+        transcription_url, timeout=30,
+        proxies={'http': None, 'https': None},
+    )
     resp.raise_for_status()
     transcript_data = resp.json()
 
