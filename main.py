@@ -1,20 +1,13 @@
 import argparse
-import os
 import sys
 from pathlib import Path
 
 import requests
-from dotenv import load_dotenv
 
 
 def main():
-    load_dotenv()
-
-    api_key = os.getenv('DASHSCOPE_API_KEY')
-    if not api_key:
-        print('Error: DASHSCOPE_API_KEY not found.')
-        print('Please set it in .env file or export DASHSCOPE_API_KEY=your_key')
-        sys.exit(1)
+    from setup_helper import check_and_setup
+    check_and_setup()
 
     parser = argparse.ArgumentParser(
         description='Transcribe Xiaoyuzhou podcast episodes to text'
