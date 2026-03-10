@@ -27,6 +27,22 @@ def transcribe_audio(audio_url: str, language: str = 'zh') -> dict:
     task_id = task_response.output.task_id
     print(f'  Task ID: {task_id}')
 
+    return _wait_and_extract(task_id)
+
+
+def resume_transcription(task_id: str) -> dict:
+    """Resume a previous transcription task by its task ID.
+
+    Returns dict with keys:
+        - text: full transcribed text
+        - sentences: list of {begin_time, end_time, text} dicts (times in ms)
+    """
+    print(f'  Resuming task: {task_id}')
+    return _wait_and_extract(task_id)
+
+
+def _wait_and_extract(task_id: str) -> dict:
+    """Poll task status and extract result when done."""
     while True:
         time.sleep(5)
         result = Transcription.fetch(task=task_id)

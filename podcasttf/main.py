@@ -49,6 +49,9 @@ def main():
         sys.exit(1)
 
     print()
+    resume_task_id = _prompt('Resume from task ID? (leave empty to start new)', '')
+
+    print()
     save_audio = _confirm('Save audio file locally?', default=False)
     audio_dir = None
     if save_audio:
@@ -105,7 +108,11 @@ def main():
         # Step: Transcribe
         current_step += 1
         _step(current_step, total_steps, 'Transcribing audio (DashScope Paraformer-v2)')
-        result = transcribe_audio(audio_url)
+        if resume_task_id:
+            from podcasttf.transcriber import resume_transcription
+            result = resume_transcription(resume_task_id)
+        else:
+            result = transcribe_audio(audio_url)
         text = result['text']
         sentences = result['sentences']
         print(f'  Recognized {len(text)} characters, {len(sentences)} sentences')
