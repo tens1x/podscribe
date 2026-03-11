@@ -1,4 +1,4 @@
-# podcast-transform-
+# PodScribe
 
 小宇宙播客转文字工具。输入播客链接，自动提取音频并转录为文本。
 
@@ -21,8 +21,8 @@ brew install python@3.12
 一键安装（推荐）：
 
 ```bash
-git clone https://github.com/tens1x/podcast-transform-.git
-cd podcast-transform-
+git clone https://github.com/tens1x/podscribe.git
+cd podscribe
 bash setup.sh
 ```
 
@@ -32,14 +32,14 @@ bash setup.sh
 <summary>手动安装</summary>
 
 ```bash
-git clone https://github.com/tens1x/podcast-transform-.git
-cd podcast-transform-
+git clone https://github.com/tens1x/podscribe.git
+cd podscribe
 python3 -m venv venv
 source venv/bin/activate
 pip install -e .
 ```
 
-首次运行 `podcasttf` 时会引导你配置 API Key。
+首次运行 `podscribe` 时会引导你配置 API Key。
 
 </details>
 
@@ -48,14 +48,14 @@ pip install -e .
 每次使用前先激活虚拟环境：
 
 ```bash
-cd podcast-transform-
+cd podscribe
 source venv/bin/activate
 ```
 
 然后运行：
 
 ```bash
-podcasttf
+podscribe
 ```
 
 程序会通过交互式界面引导你完成以下步骤：

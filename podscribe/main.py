@@ -15,7 +15,7 @@ VERSION = '0.1.0'
 
 def _banner():
     title = Text()
-    title.append("🎙  PodcastTF", style="bold cyan")
+    title.append("🎙  PodScribe", style="bold cyan")
     title.append(f"  v{VERSION}", style="dim")
     subtitle = Text("Podcast → Text, powered by AI", style="dim white")
 
@@ -31,7 +31,7 @@ def _banner():
 
 
 def _check_resume():
-    from podcasttf.task_state import load_state
+    from podscribe.task_state import load_state
     state = load_state()
     if not state:
         return None
@@ -66,7 +66,7 @@ def _check_resume():
 
 
 def main():
-    from podcasttf.setup_helper import check_and_setup
+    from podscribe.setup_helper import check_and_setup
     check_and_setup()
 
     _banner()
@@ -135,7 +135,7 @@ def main():
         ).execute().strip()
 
     # --- Confirm and execute ---
-    from podcasttf.task_state import save_state, clear_state
+    from podscribe.task_state import save_state, clear_state
 
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
@@ -161,9 +161,9 @@ def main():
         })
 
     try:
-        from podcasttf.podcast_downloader import extract_audio_url, download_audio
-        from podcasttf.transcriber import transcribe_audio, resume_transcription
-        from podcasttf.srt_formatter import sentences_to_srt
+        from podscribe.podcast_downloader import extract_audio_url, download_audio
+        from podscribe.transcriber import transcribe_audio, resume_transcription
+        from podscribe.srt_formatter import sentences_to_srt
 
         # Step: Extract
         current_step += 1
@@ -216,7 +216,7 @@ def main():
         if use_ai:
             current_step += 1
             with console.status(f"[cyan][{current_step}/{total_steps}] AI post-processing (Qwen)...", spinner="dots"):
-                from podcasttf.ai_postprocess import postprocess_text
+                from podscribe.ai_postprocess import postprocess_text
                 text = postprocess_text(text)
             state['completed_step'] = current_step
             save_state(state)

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "=== 开始安装 podcast-transform ==="
+echo "=== 开始安装 PodScribe ==="
 echo ""
 
 # 创建虚拟环境
@@ -27,6 +27,6 @@ echo "=== 安装完成 ==="
 echo ""
 echo "使用方法："
 echo "  1. 激活虚拟环境：source venv/bin/activate"
-echo "  2. 运行：podcasttf"
+echo "  2. 运行：podscribe"
 echo "  首次运行会引导你配置 API Key。"
 echo ""

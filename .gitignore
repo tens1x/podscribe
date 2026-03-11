@@ -3,4 +3,7 @@ output/
 __pycache__/
 *.pyc
 *.egg-info/
-.podcasttf/
+.podscribe/
+venv/
+.runtime/
+.DS_Store

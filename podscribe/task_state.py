@@ -2,7 +2,7 @@
 import json
 from pathlib import Path
 
-STATE_DIR = Path('.podcasttf')
+STATE_DIR = Path('.podscribe')
 STATE_FILE = STATE_DIR / 'last_task.json'
 
 
