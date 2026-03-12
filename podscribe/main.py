@@ -1,4 +1,5 @@
 import sys
+import time
 from pathlib import Path
 
 from rich.console import Console
@@ -112,8 +113,10 @@ def _render_prompt_page(
     step_label: str,
     prompt_title: str,
     summary: Text | None = None,
+    clear_console: bool = True,
 ):
-    console.clear()
+    if clear_console:
+        console.clear()
     _banner(config)
 
     if summary and summary.plain:
@@ -172,14 +175,19 @@ def _parse_episode_urls(raw_urls: str) -> list[str]:
     return [url.strip() for url in raw_urls.split(',') if url.strip()]
 
 
-def _prompt_episode_urls(current_config: dict | None = None) -> list[str]:
+def _prompt_episode_urls(
+    current_config: dict | None = None,
+    prompt_title: str = 'Enter episode URLs',
+    clear_console: bool = True,
+) -> list[str]:
     from InquirerPy import inquirer
 
     _render_prompt_page(
         current_config,
         '[1/1]',
-        'Enter episode URLs',
+        prompt_title,
         _format_config_summary(current_config),
+        clear_console=clear_console,
     )
     raw_urls = inquirer.text(
         message='Paste Xiaoyuzhou episode URL(s), separated by commas:',
@@ -562,46 +570,62 @@ def main():
     resumed = _check_resume()
     if resumed:
         config = _state_to_config(resumed)
-        episode_urls = [resumed['episode_url']]
     else:
-        episode_urls = _prompt_episode_urls(current_config)
-        if current_config:
-            config = _normalize_config(current_config)
-        else:
-            config = _prompt_config()
-            save_config(config)
+        config = _normalize_config(current_config) if current_config else None
 
-    results: list[bool] = []
-    for index, episode_url in enumerate(episode_urls, start=1):
-        resumed_state = resumed if resumed and index == 1 else None
-        results.append(_process_episode(
-            episode_url=episode_url,
-            config=config,
-            index=index,
-            total=len(episode_urls),
-            resumed_state=resumed_state,
+    first_iteration = True
+    next_resumed_state = resumed
+
+    while True:
+        if next_resumed_state:
+            episode_urls = [next_resumed_state['episode_url']]
+        else:
+            if not first_iteration:
+                console.clear()
+            try:
+                episode_urls = _prompt_episode_urls(
+                    config or current_config,
+                    prompt_title='Paste new URL(s) to continue, or press Ctrl+C to exit' if not first_iteration else 'Enter episode URLs',
+                    clear_console=first_iteration,
+                )
+            except KeyboardInterrupt:
+                console.print('\n  [dim]Goodbye.[/]')
+                return
+            if config is None:
+                config = _prompt_config()
+                save_config(config)
+
+        results: list[bool] = []
+        for index, episode_url in enumerate(episode_urls, start=1):
+            resumed_state = next_resumed_state if next_resumed_state and index == 1 else None
+            results.append(_process_episode(
+                episode_url=episode_url,
+                config=config,
+                index=index,
+                total=len(episode_urls),
+                resumed_state=resumed_state,
+            ))
+
+        succeeded = sum(1 for result in results if result)
+        failed = len(results) - succeeded
+
+        console.print()
+        summary_text = Text()
+        summary_text.append('Batch complete: ', style='cyan')
+        summary_text.append(f'{succeeded} succeeded', style='green')
+        summary_text.append(', ', style='cyan')
+        summary_text.append(f'{failed} failed', style='red' if failed else 'cyan')
+        console.print(Panel(
+            summary_text,
+            border_style='cyan',
+            title='[bold cyan]Batch Summary[/]',
+            padding=(0, 2),
+            width=60,
         ))
 
-    succeeded = sum(1 for result in results if result)
-    failed = len(results) - succeeded
-
-    console.print()
-    summary_text = Text()
-    summary_text.append('Batch complete: ', style='cyan')
-    summary_text.append(f'{succeeded} succeeded', style='green')
-    summary_text.append(', ', style='cyan')
-    summary_text.append(f'{failed} failed', style='red' if failed else 'cyan')
-    console.print(Panel(
-        summary_text,
-        border_style='cyan',
-        title='[bold cyan]Batch Summary[/]',
-        padding=(0, 2),
-        width=60,
-    ))
-
-    if failed == len(results):
-        sys.exit(1)
-    sys.exit(0)
+        time.sleep(0.8)
+        first_iteration = False
+        next_resumed_state = None
 
 
 if __name__ == '__main__':
