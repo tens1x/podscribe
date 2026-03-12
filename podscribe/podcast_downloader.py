@@ -74,15 +74,8 @@ def extract_audio_url(episode_url: str) -> tuple:
 def download_audio(audio_url: str, save_path: str) -> str:
     response = requests.get(audio_url, stream=True, timeout=60)
     response.raise_for_status()
-    total_size = int(response.headers.get('content-length', 0))
 
     with open(save_path, 'wb') as f:
-        downloaded = 0
         for chunk in response.iter_content(chunk_size=8192):
             f.write(chunk)
-            downloaded += len(chunk)
-            if total_size:
-                percent = (downloaded / total_size) * 100
-                print(f'\rDownloading: {percent:.1f}% ({downloaded // 1024 // 1024}MB)', end='', flush=True)
-    print()
     return save_path

@@ -11,7 +11,7 @@ from podscribe.config import load_config, save_config
 from podscribe.history import add_record, load_history
 
 console = Console()
-DEFAULT_OUTPUT_DIR = Path('output')
+DEFAULT_OUTPUT_DIR = Path.home() / 'PodScribe'
 VERSION = '0.1.0'
 DEFAULT_CONFIG = {
     'output_formats': ['txt', 'srt'],

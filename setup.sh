@@ -3,6 +3,13 @@
 echo "=== 开始安装 PodScribe ==="
 echo ""
 
+if ! command -v python3 &> /dev/null; then
+    echo "Error: python3 not found. Please install Python 3.10+ first."
+    echo "  macOS: brew install python@3.12"
+    echo "  Linux: sudo apt install python3"
+    exit 1
+fi
+
 # 创建虚拟环境
 if [ ! -d "venv" ]; then
     echo "创建虚拟环境..."

@@ -9,11 +9,19 @@
 - macOS / Linux / Windows
 - Python 3.10+
 - 阿里云 DashScope API Key（[点此获取](https://bailian.console.aliyun.com/)）
+- 默认输出目录：`~/PodScribe`
 
-macOS 如果没有 Python 3.10+，先安装：
+如果没有 Python 3.10+，先按平台安装：
 
 ```bash
+# macOS
 brew install python@3.12
+
+# Linux
+sudo apt install python3
+
+# Windows
+# 从 python.org 下载并安装最新版 Python
 ```
 
 ## 安装步骤
@@ -21,7 +29,18 @@ brew install python@3.12
 全局安装（推荐，适合直接使用命令）：
 
 ```bash
+# macOS
 brew install pipx
+
+# Linux
+sudo apt install pipx
+# 或
+python3 -m pip install --user pipx
+
+# Windows
+python -m pip install --user pipx
+
+# 所有平台
 pipx install git+https://github.com/tens1x/podscribe.git
 ```
 
@@ -32,6 +51,8 @@ podscribe
 ```
 
 首次运行 `podscribe` 时会引导你配置 API Key。
+
+`setup.sh` 仅适用于 macOS / Linux。Windows 用户请使用上面的 `pipx` 安装方式。
 
 <details>
 <summary>开发者 / 手动安装（适合需要改代码的贡献者）</summary>
