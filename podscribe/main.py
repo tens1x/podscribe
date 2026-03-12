@@ -61,50 +61,28 @@ def _format_config(config: dict | None) -> dict:
     }
 
 
-def _merge_prompt_config(current_config: dict | None, state: dict | None = None) -> dict:
-    merged = _normalize_config(current_config)
-    for key in ('output_formats', 'output_dir', 'save_audio', 'audio_dir', 'use_ai'):
-        if state and key in state:
-            merged[key] = state[key]
-    return _normalize_config(merged)
-
-
-def _append_summary_item(summary: Text, label: str, value: str, value_style: str = 'green'):
-    if summary.plain:
-        summary.append(' | ', style='dim')
-    summary.append(f'{label}: ', style='dim')
-    summary.append(value, style=value_style)
-
-
-def _format_prompt_summary(state: dict) -> Text | None:
-    summary = Text()
-
-    if 'output_formats' in state:
-        _append_summary_item(summary, 'Format', ' + '.join(state['output_formats']))
-    if 'save_audio' in state:
-        _append_summary_item(summary, 'Audio', 'on' if state['save_audio'] else 'off')
-    if state.get('save_audio') and state.get('audio_dir'):
-        _append_summary_item(summary, 'Audio dir', _format_output_path(state['audio_dir']), value_style='dim')
-    if 'use_ai' in state:
-        _append_summary_item(summary, 'AI', 'on' if state['use_ai'] else 'off')
-    if 'output_dir' in state:
-        _append_summary_item(summary, 'Output', _format_output_path(state['output_dir']), value_style='dim')
-
-    return summary if summary.plain else None
-
-
 def _format_config_summary(config: dict | None) -> Text | None:
     if not config:
         return None
 
     normalized = _normalize_config(config)
-    return _format_prompt_summary({
-        'output_formats': normalized['output_formats'],
-        'save_audio': normalized['save_audio'],
-        'audio_dir': normalized['audio_dir'],
-        'use_ai': normalized['use_ai'],
-        'output_dir': normalized['output_dir'],
-    })
+    summary = Text()
+    summary.append('Format: ', style='dim')
+    summary.append(' + '.join(normalized['output_formats']), style='green')
+    summary.append(' | ', style='dim')
+    summary.append('Audio: ', style='dim')
+    summary.append('on' if normalized['save_audio'] else 'off', style='green')
+    if normalized['save_audio'] and normalized['audio_dir']:
+        summary.append(' | ', style='dim')
+        summary.append('Audio dir: ', style='dim')
+        summary.append(_format_output_path(normalized['audio_dir']), style='dim')
+    summary.append(' | ', style='dim')
+    summary.append('AI: ', style='dim')
+    summary.append('on' if normalized['use_ai'] else 'off', style='green')
+    summary.append(' | ', style='dim')
+    summary.append('Output: ', style='dim')
+    summary.append(_format_output_path(normalized['output_dir']), style='dim')
+    return summary
 
 
 def _render_prompt_page(
@@ -200,94 +178,140 @@ def _prompt_episode_urls(
     return urls
 
 
-def _prompt_config(current_config: dict | None = None) -> dict:
+def _format_menu_path(path_value: str | None) -> str:
+    if not path_value:
+        return '-'
+
+    home = Path.home()
+    path = Path(path_value).expanduser()
+    try:
+        relative = path.relative_to(home)
+        return '~' if str(relative) == '.' else f'~/{relative}'
+    except ValueError:
+        return _format_output_path(path_value)
+
+
+def _format_edit_config_value(config: dict, key: str) -> str:
+    if key == 'output_formats':
+        return ' + '.join(config['output_formats'])
+    if key == 'save_audio':
+        return 'on' if config['save_audio'] else 'off'
+    if key == 'audio_dir':
+        return _format_menu_path(config['audio_dir'] or str(DEFAULT_OUTPUT_DIR / 'audio'))
+    if key == 'use_ai':
+        return 'on' if config['use_ai'] else 'off'
+    if key == 'output_dir':
+        return _format_menu_path(config['output_dir'])
+    raise KeyError(key)
+
+
+def _edit_config_menu(config: dict) -> dict:
     from InquirerPy import inquirer
+    from InquirerPy.separator import Separator
 
-    config = _normalize_config(current_config)
-    state: dict = {}
+    original_config = config
+    working_config = _normalize_config(config)
+    label_width = 18
 
-    _render_prompt_page(
-        _merge_prompt_config(config, state),
-        '[1/5]',
-        'Audio settings',
-        _format_prompt_summary(state),
-    )
-    save_audio = inquirer.confirm(
-        message='Save audio file locally?',
-        default=config['save_audio'],
-        qmark='💾',
-    ).execute()
-    state['save_audio'] = save_audio
+    try:
+        while True:
+            console.clear()
+            _banner(working_config)
+            console.print()
+            console.print('  [bold cyan]Edit config[/]')
+            console.print()
 
-    audio_dir = None
-    if save_audio:
-        _render_prompt_page(
-            _merge_prompt_config(config, state),
-            '[2/5]',
-            'Audio directory',
-            _format_prompt_summary(state),
-        )
-        audio_dir = inquirer.text(
-            message='Audio save directory:',
-            default=config['audio_dir'] or str(DEFAULT_OUTPUT_DIR / 'audio'),
-            qmark='📂',
-        ).execute().strip()
-        state['audio_dir'] = audio_dir
+            choice = inquirer.select(
+                message='Select an option to change:',
+                choices=[
+                    {
+                        'name': f"{'Output formats':<{label_width}} [{_format_edit_config_value(working_config, 'output_formats')}]",
+                        'value': 'output_formats',
+                    },
+                    {
+                        'name': f"{'Save audio':<{label_width}} [{_format_edit_config_value(working_config, 'save_audio')}]",
+                        'value': 'save_audio',
+                    },
+                    {
+                        'name': f"{'Audio directory':<{label_width}} [{_format_edit_config_value(working_config, 'audio_dir')}]",
+                        'value': 'audio_dir',
+                    },
+                    {
+                        'name': f"{'AI post-process':<{label_width}} [{_format_edit_config_value(working_config, 'use_ai')}]",
+                        'value': 'use_ai',
+                    },
+                    {
+                        'name': f"{'Output directory':<{label_width}} [{_format_edit_config_value(working_config, 'output_dir')}]",
+                        'value': 'output_dir',
+                    },
+                    Separator('────────────────'),
+                    {'name': 'Save & back', 'value': 'save'},
+                    {'name': 'Discard & back', 'value': 'discard'},
+                ],
+                pointer='›',
+                qmark='?',
+            ).execute()
 
-    _render_prompt_page(
-        _merge_prompt_config(config, state),
-        '[3/5]',
-        'Output formats',
-        _format_prompt_summary(state),
-    )
-    output_formats = inquirer.checkbox(
-        message='Select output formats:',
-        choices=[
-            {'name': 'txt  — plain text', 'value': 'txt', 'enabled': 'txt' in config['output_formats']},
-            {'name': 'srt  — subtitles with timestamps', 'value': 'srt', 'enabled': 'srt' in config['output_formats']},
-        ],
-        qmark='📄',
-        pointer='›',
-        enabled_symbol='●',
-        disabled_symbol='○',
-        validate=lambda value: len(value) > 0,
-        invalid_message='Select at least one format.',
-    ).execute()
-    state['output_formats'] = output_formats
+            if choice == 'save':
+                return working_config
+            if choice == 'discard':
+                return original_config
 
-    _render_prompt_page(
-        _merge_prompt_config(config, state),
-        '[4/5]',
-        'AI post-processing',
-        _format_prompt_summary(state),
-    )
-    use_ai = inquirer.confirm(
-        message='AI post-processing? (fix punctuation, add paragraphs)',
-        default=config['use_ai'],
-        qmark='🤖',
-    ).execute()
-    state['use_ai'] = use_ai
+            if choice == 'output_formats':
+                selected_formats = inquirer.checkbox(
+                    message='Select output formats:',
+                    choices=[
+                        {'name': 'txt  — plain text', 'value': 'txt', 'enabled': 'txt' in working_config['output_formats']},
+                        {'name': 'srt  — subtitles with timestamps', 'value': 'srt', 'enabled': 'srt' in working_config['output_formats']},
+                    ],
+                    qmark='📄',
+                    pointer='›',
+                    enabled_symbol='●',
+                    disabled_symbol='○',
+                    validate=lambda value: len(value) > 0,
+                    invalid_message='Select at least one format.',
+                ).execute()
+                working_config['output_formats'] = selected_formats
+                continue
 
-    _render_prompt_page(
-        _merge_prompt_config(config, state),
-        '[5/5]',
-        'Transcript directory',
-        _format_prompt_summary(state),
-    )
-    output_dir = inquirer.text(
-        message='Transcript save directory:',
-        default=config['output_dir'],
-        qmark='📂',
-    ).execute().strip()
-    state['output_dir'] = output_dir
+            if choice == 'save_audio':
+                working_config['save_audio'] = inquirer.confirm(
+                    message='Save audio file locally?',
+                    default=working_config['save_audio'],
+                    qmark='💾',
+                ).execute()
+                continue
 
-    return {
-        'output_formats': output_formats,
-        'output_dir': output_dir,
-        'save_audio': save_audio,
-        'audio_dir': audio_dir,
-        'use_ai': use_ai,
-    }
+            if choice == 'audio_dir':
+                if not working_config['save_audio']:
+                    console.print()
+                    console.print('  [dim]Enable "Save audio" first to edit the audio directory.[/]')
+                    console.print()
+                    _pause()
+                    continue
+                working_config['audio_dir'] = inquirer.text(
+                    message='Audio save directory:',
+                    default=working_config['audio_dir'] or str(DEFAULT_OUTPUT_DIR / 'audio'),
+                    qmark='📂',
+                ).execute().strip()
+                continue
+
+            if choice == 'use_ai':
+                working_config['use_ai'] = inquirer.confirm(
+                    message='AI post-processing? (fix punctuation, add paragraphs)',
+                    default=working_config['use_ai'],
+                    qmark='🤖',
+                ).execute()
+                continue
+
+            if choice == 'output_dir':
+                working_config['output_dir'] = inquirer.text(
+                    message='Transcript save directory:',
+                    default=working_config['output_dir'],
+                    qmark='📂',
+                ).execute().strip()
+    except KeyboardInterrupt:
+        return original_config
 
 
 def _check_resume():
@@ -374,18 +398,12 @@ def _edit_config(
     if show_banner:
         _banner(current_config)
 
-    current = _format_config(current_config)
-    console.print()
-    console.print('  [bold cyan]Config mode[/]')
-    console.print(f"    Format    : [green]{current['formats']}[/]")
-    console.print(f"    Output    : [dim]{current['output']}[/]")
-    console.print(f"    Save audio: [green]{current['save_audio']}[/]")
-    if _normalize_config(current_config)['save_audio']:
-        console.print(f"    Audio dir : [dim]{current['audio_dir']}[/]")
-    console.print(f"    AI post   : [green]{current['ai']}[/]")
+    original_config = _normalize_config(current_config)
+    updated_config = _edit_config_menu(original_config)
+    if updated_config is original_config:
+        return
 
-    config = _prompt_config(current_config)
-    save_config(config)
+    save_config(updated_config)
 
     console.print()
     console.print(Panel(
@@ -587,12 +605,13 @@ def _process_episode(
     except KeyboardInterrupt:
         _record_failure(episode_url, state, 'Interrupted by user.')
         console.print('\n  [dim]Interrupted.[/]')
-        sys.exit(130)
+        raise
 
 
 def main():
     command = sys.argv[1] if len(sys.argv) > 1 else None
-    current_config = _normalize_config(load_config())
+    raw_config = load_config()
+    current_config = _normalize_config(raw_config)
 
     if command == 'config':
         _edit_config(current_config)
@@ -604,14 +623,19 @@ def main():
 
     from podscribe.setup_helper import check_and_setup
 
+    _banner(current_config)
+    check_and_setup()
+
     try:
-        _banner(current_config)
-        check_and_setup()
-
         resumed = _check_resume()
-        config = _state_to_config(resumed) if resumed else current_config
+    except KeyboardInterrupt:
+        console.print('\n  [dim]Goodbye.[/]')
+        return
 
-        if resumed:
+    config = _state_to_config(resumed) if resumed else current_config
+
+    if resumed:
+        try:
             results = [
                 _process_episode(
                     episode_url=resumed['episode_url'],
@@ -639,14 +663,30 @@ def main():
             ))
             console.print()
             _pause()
+        except KeyboardInterrupt:
+            console.print('\n  [dim]Cancelled.[/]')
+        config = _normalize_config(load_config())
+
+    if raw_config is None and not resumed:
+        default_config = _normalize_config(DEFAULT_CONFIG)
+        configured_config = _edit_config_menu(default_config)
+        if configured_config is not default_config:
+            save_config(configured_config)
             config = _normalize_config(load_config())
+        else:
+            config = default_config
 
-        while True:
-            console.clear()
-            _banner(config)
+    while True:
+        console.clear()
+        _banner(config)
+        try:
             choice = _main_menu(config)
+        except KeyboardInterrupt:
+            console.print('\n  [dim]Goodbye.[/]')
+            return
 
-            if choice == 'start':
+        if choice == 'start':
+            try:
                 episode_urls = _prompt_episode_urls(
                     config,
                     prompt_title='Enter episode URLs',
@@ -679,34 +719,42 @@ def main():
                 ))
                 console.print()
                 _pause()
-                continue
+            except KeyboardInterrupt:
+                console.print('\n  [dim]Cancelled.[/]')
+            continue
 
-            if choice == 'view_config':
+        if choice == 'view_config':
+            try:
                 console.clear()
                 _banner(config)
                 _print_config_details(config)
                 console.print()
                 _pause()
-                continue
+            except KeyboardInterrupt:
+                pass
+            continue
 
-            if choice == 'edit_config':
+        if choice == 'edit_config':
+            try:
                 console.clear()
                 _banner(config)
                 _edit_config(config, show_banner=False, clear_console=False)
-                config = _normalize_config(load_config())
-                continue
+            except KeyboardInterrupt:
+                pass
+            config = _normalize_config(load_config())
+            continue
 
-            if choice == 'view_history':
+        if choice == 'view_history':
+            try:
                 console.clear()
                 _banner(config)
                 _show_history(config, show_banner=False)
                 console.print()
                 _pause()
-                continue
+            except KeyboardInterrupt:
+                pass
+            continue
 
-            console.print('\n  [dim]Goodbye.[/]')
-            return
-    except KeyboardInterrupt:
         console.print('\n  [dim]Goodbye.[/]')
         return
 
