@@ -415,19 +415,6 @@ def _edit_config(
     ))
 
 
-def _print_config_details(config: dict | None):
-    current = _format_config(config)
-    normalized = _normalize_config(config)
-
-    console.print()
-    console.print('  [bold cyan]Current config[/]')
-    console.print(f"    Format    : [green]{current['formats']}[/]")
-    console.print(f"    Output    : [dim]{current['output']}[/]")
-    console.print(f"    Save audio: [green]{current['save_audio']}[/]")
-    console.print(f"    Audio dir : [dim]{current['audio_dir'] if normalized['save_audio'] else '-'}[/]")
-    console.print(f"    AI post   : [green]{current['ai']}[/]")
-
-
 def _main_menu(config: dict | None) -> str:
     from InquirerPy import inquirer
 
@@ -435,7 +422,6 @@ def _main_menu(config: dict | None) -> str:
         message='What would you like to do?',
         choices=[
             {'name': 'Start transcription', 'value': 'start'},
-            {'name': 'View config', 'value': 'view_config'},
             {'name': 'Edit config', 'value': 'edit_config'},
             {'name': 'View history', 'value': 'view_history'},
             {'name': 'Quit', 'value': 'quit'},
@@ -721,17 +707,6 @@ def main():
                 _pause()
             except KeyboardInterrupt:
                 console.print('\n  [dim]Cancelled.[/]')
-            continue
-
-        if choice == 'view_config':
-            try:
-                console.clear()
-                _banner(config)
-                _print_config_details(config)
-                console.print()
-                _pause()
-            except KeyboardInterrupt:
-                pass
             continue
 
         if choice == 'edit_config':
