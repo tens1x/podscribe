@@ -6,35 +6,23 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
+from podscribe.app_service import (
+    DEFAULT_CONFIG,
+    DEFAULT_OUTPUT_DIR,
+    PodscribeError,
+    build_request,
+    normalize_config as service_normalize_config,
+    process_episode,
+)
 from podscribe.config import load_config, save_config
-from podscribe.history import add_record, load_history
+from podscribe.history import load_history
 
 console = Console()
-DEFAULT_OUTPUT_DIR = Path.home() / 'PodScribe'
 VERSION = '0.1.0'
-DEFAULT_CONFIG = {
-    'output_formats': ['txt', 'srt'],
-    'output_dir': str(DEFAULT_OUTPUT_DIR),
-    'save_audio': False,
-    'audio_dir': None,
-    'use_ai': True,
-}
 
 
 def _normalize_config(config: dict | None) -> dict:
-    merged = DEFAULT_CONFIG.copy()
-    if config:
-        merged.update(config)
-
-    output_formats = merged.get('output_formats') or DEFAULT_CONFIG['output_formats']
-    merged['output_formats'] = [fmt for fmt in output_formats if fmt in {'txt', 'srt'}] or DEFAULT_CONFIG['output_formats']
-    merged['output_dir'] = str(merged.get('output_dir') or DEFAULT_CONFIG['output_dir'])
-    merged['save_audio'] = bool(merged.get('save_audio', DEFAULT_CONFIG['save_audio']))
-    merged['audio_dir'] = merged.get('audio_dir') or None
-    merged['use_ai'] = bool(merged.get('use_ai', DEFAULT_CONFIG['use_ai']))
-    if merged['save_audio'] and not merged['audio_dir']:
-        merged['audio_dir'] = str(DEFAULT_OUTPUT_DIR / 'audio')
-    return merged
+    return service_normalize_config(config)
 
 
 def _format_output_path(path_value: str | None) -> str:
@@ -435,28 +423,6 @@ def _pause():
     input('  Press Enter to continue...')
 
 
-def _build_state(episode_url: str, config: dict) -> dict:
-    return {
-        'episode_url': episode_url,
-        'save_audio': config['save_audio'],
-        'audio_dir': config['audio_dir'],
-        'output_formats': config['output_formats'],
-        'use_ai': config['use_ai'],
-        'output_dir': config['output_dir'],
-        'completed_step': 0,
-    }
-
-
-def _record_failure(episode_url: str, state: dict, error: str):
-    add_record(
-        url=episode_url,
-        title=state.get('episode_title') or episode_url,
-        status='failed',
-        output_files=[],
-        error=error,
-    )
-
-
 def _process_episode(
     episode_url: str,
     config: dict,
@@ -464,105 +430,31 @@ def _process_episode(
     total: int,
     resumed_state: dict | None = None,
 ) -> bool:
-    import requests
-
-    from podscribe.podcast_downloader import download_audio, extract_audio_url
-    from podscribe.srt_formatter import sentences_to_srt
-    from podscribe.task_state import clear_state, save_state
-    from podscribe.transcriber import resume_transcription, transcribe_audio
-
-    config = _normalize_config(config)
-    state = resumed_state.copy() if resumed_state else _build_state(episode_url, config)
-    completed_step = state.get('completed_step', 0)
-    output_path = Path(config['output_dir'])
-    output_path.mkdir(parents=True, exist_ok=True)
-
-    total_steps = 3 + (1 if config['save_audio'] else 0) + (1 if config['use_ai'] else 0)
-    current_step = 0
-
-    console.print()
-    console.print(f'  [bold cyan][{index}/{total}][/] [cyan]Processing episode {index}...[/]')
-
     try:
-        current_step += 1
-        if completed_step < current_step:
-            with console.status(f'[bold cyan][{current_step}/{total_steps}][/] [cyan]Parsing episode page...[/]', spinner='dots'):
-                audio_url, episode_title = extract_audio_url(episode_url)
-            state['audio_url'] = audio_url
-            state['episode_title'] = episode_title
-            state['completed_step'] = current_step
-            save_state(state)
-        else:
-            audio_url = state['audio_url']
-            episode_title = state['episode_title']
-        console.print(f'  [green]✓[/] Episode : [bold green]{episode_title}[/]')
-        console.print(f'  [green]✓[/] Audio   : [dim]{audio_url}[/]')
-
-        if config['save_audio']:
-            current_step += 1
-            if completed_step < current_step:
-                console.print()
-                console.print(f'  [bold cyan][{current_step}/{total_steps}][/] [cyan]Downloading audio...[/]')
-                audio_save_path = Path(config['audio_dir'])
-                audio_save_path.mkdir(parents=True, exist_ok=True)
-                audio_ext = audio_url.rsplit('.', 1)[-1].split('?')[0]
-                audio_file = audio_save_path / f'{episode_title}.{audio_ext}'
-                download_audio(audio_url, str(audio_file))
-                console.print(f'  [green]✓[/] Saved to: [dim]{audio_file}[/]')
-                state['completed_step'] = current_step
-                save_state(state)
-
-        current_step += 1
-        with console.status(f'[bold cyan][{current_step}/{total_steps}][/] [cyan]Transcribing audio (DashScope Paraformer-v2)...[/]', spinner='dots'):
-            task_id = state.get('task_id')
-            if task_id:
-                result = resume_transcription(task_id)
-            else:
-                result = transcribe_audio(audio_url)
-        text = result['text']
-        sentences = result['sentences']
-        state['completed_step'] = current_step
-        save_state(state)
-        console.print(f'  [green]✓[/] Recognized {len(text)} characters, {len(sentences)} sentences')
-
-        if config['use_ai']:
-            current_step += 1
-            with console.status(f'[bold cyan][{current_step}/{total_steps}][/] [cyan]AI post-processing (Qwen)...[/]', spinner='dots'):
-                from podscribe.ai_postprocess import postprocess_text
-
-                text = postprocess_text(text)
-            state['completed_step'] = current_step
-            save_state(state)
-            console.print('  [green]✓[/] Post-processing complete')
-
-        current_step += 1
-        saved_files = []
-
-        if 'txt' in config['output_formats']:
-            txt_path = output_path / f'{episode_title}.txt'
-            txt_path.write_text(text, encoding='utf-8')
-            saved_files.append(str(txt_path.resolve()))
-
-        if 'srt' in config['output_formats']:
-            srt_path = output_path / f'{episode_title}.srt'
-            srt_content = sentences_to_srt(sentences)
-            srt_path.write_text(srt_content, encoding='utf-8')
-            saved_files.append(str(srt_path.resolve()))
-
-        clear_state()
-        add_record(
-            url=episode_url,
-            title=episode_title,
-            status='success',
-            output_files=saved_files,
+        request = build_request(
+            episode_url,
+            config,
+            resumed_state=resumed_state,
+            index=index,
+            total=total,
         )
+        last_message = None
+
+        def on_progress(event):
+            nonlocal last_message
+            if event.message == last_message:
+                return
+            last_message = event.message
+            console.print(f'  [cyan]{event.message}[/]')
+
+        result = process_episode(request, progress_callback=on_progress)
 
         console.print()
         done_text = Text()
         done_text.append('Done! ', style='bold green')
-        done_text.append(f'{len(text)} characters transcribed', style='dim')
+        done_text.append(f'{len(result.text)} characters transcribed', style='dim')
         results = Text()
-        for idx, file_path in enumerate(saved_files):
+        for idx, file_path in enumerate(result.output_files):
             if idx:
                 results.append('\n')
             results.append(f'  → {file_path}', style='dim')
@@ -574,22 +466,10 @@ def _process_episode(
             width=60,
         ))
         return True
-    except requests.exceptions.Timeout:
-        _record_failure(episode_url, state, 'Request timed out. Check your network.')
-        console.print('\n  [bold red]Error:[/] Request timed out. Check your network.')
-        return False
-    except requests.exceptions.HTTPError as error:
-        status_code = error.response.status_code if error.response else 'unknown'
-        message = f'HTTP {status_code}'
-        _record_failure(episode_url, state, message)
-        console.print(f'\n  [bold red]Error:[/] {message}')
-        return False
-    except (ValueError, RuntimeError) as error:
-        _record_failure(episode_url, state, str(error))
+    except PodscribeError as error:
         console.print(f'\n  [bold red]Error:[/] {error}')
         return False
     except KeyboardInterrupt:
-        _record_failure(episode_url, state, 'Interrupted by user.')
         console.print('\n  [dim]Interrupted.[/]')
         raise
 
@@ -605,6 +485,12 @@ def main():
 
     if command == 'history':
         _show_history(current_config)
+        return
+
+    if command == 'gui':
+        from podscribe.gui import main as gui_main
+
+        gui_main()
         return
 
     from podscribe.setup_helper import check_and_setup

@@ -50,6 +50,16 @@ pipx install git+https://github.com/tens1x/podscribe.git
 podscribe
 ```
 
+如果想直接打开桌面窗口版：
+
+```bash
+podscribe-gui
+# 或
+podscribe gui
+```
+
+注意：当前桌面窗口版基于 Python 内置 `tkinter`，不额外引入大型 GUI 依赖。macOS / Windows 上建议使用带 Tk 支持的 Python 发行版。
+
 首次运行 `podscribe` 时会引导你配置 API Key。
 
 `setup.sh` 仅适用于 macOS / Linux。Windows 用户请使用上面的 `pipx` 安装方式。
@@ -102,6 +112,7 @@ podscribe history
 ## 功能特性
 
 - 交互式 CLI 界面（上下选择、多选、彩色输出）
+- 最小桌面窗口入口（适合逐步演进为 macOS app）
 - 支持 TXT 和 SRT 两种输出格式
 - AI 后处理（自动标点、分段，基于通义千问）
 - 任务中断自动恢复

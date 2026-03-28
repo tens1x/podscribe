@@ -19,3 +19,4 @@ include = ["podscribe*"]
 
 [project.scripts]
 podscribe = "podscribe.main:main"
+podscribe-gui = "podscribe.gui:main"
