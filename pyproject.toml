@@ -9,7 +9,6 @@ description = "Podcast transcription tool with SRT and AI post-processing"
 requires-python = ">=3.10"
 dependencies = [
     "requests>=2.31.0",
-    "dashscope>=1.20.0",
     "rich>=13.0.0",
     "InquirerPy>=0.3.4",
 ]

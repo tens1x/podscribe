@@ -513,7 +513,7 @@ def _process_episode(
                 save_state(state)
 
         current_step += 1
-        with console.status(f'[bold cyan][{current_step}/{total_steps}][/] [cyan]Transcribing audio (DashScope Paraformer-v2)...[/]', spinner='dots'):
+        with console.status(f'[bold cyan][{current_step}/{total_steps}][/] [cyan]Transcribing audio (Qwen3-ASR)...[/]', spinner='dots'):
             task_id = state.get('task_id')
             if task_id:
                 result = resume_transcription(task_id)

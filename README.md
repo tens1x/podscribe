@@ -2,115 +2,111 @@
 
 小宇宙播客转文字工具。输入播客链接，自动提取音频并转录为文本。
 
-支持 TXT 纯文本和 SRT 字幕格式输出，可选 AI 后处理（自动加标点、分段）。
+- 语音识别：Qwen3-ASR（阿里通义千问语音大模型）
+- 输出格式：TXT 纯文本 / SRT 带时间戳字幕
+- AI 后处理：自动加标点、分段（基于通义千问 LLM）
 
 ## 前置要求
 
 - macOS / Linux / Windows
 - Python 3.10+
-- 阿里云 DashScope API Key（[点此获取](https://bailian.console.aliyun.com/)）
-- 默认输出目录：`~/PodScribe`
+- 阿里云百炼平台 API Key
 
-如果没有 Python 3.10+，先按平台安装：
+### 获取 API Key
 
-```bash
-# macOS
-brew install python@3.12
+1. 打开 [百炼控制台](https://bailian.console.aliyun.com/)，注册/登录阿里云账号
+2. 进入 [API-KEY 管理](https://bailian.console.aliyun.com/#/api-key)
+3. 创建 API Key（选择北京地域）
 
-# Linux
-sudo apt install python3
+> API Key 以 `sk-` 开头。同一个 Key 同时用于语音识别（Qwen3-ASR）和 AI 后处理（Qwen LLM），无需分别申请。
+>
+> Key 存储在本地配置文件 `~/.config/podscribe/config.json` 中，不会上传到任何第三方服务。
 
-# Windows
-# 从 python.org 下载并安装最新版 Python
-```
-
-## 安装步骤
-
-全局安装（推荐，适合直接使用命令）：
+## 安装
 
 ```bash
-# macOS
-brew install pipx
+# 1. 安装 pipx（如果还没装）
+brew install pipx        # macOS
+sudo apt install pipx    # Linux
+python -m pip install --user pipx  # Windows
 
-# Linux
-sudo apt install pipx
-# 或
-python3 -m pip install --user pipx
-
-# Windows
-python -m pip install --user pipx
-
-# 所有平台
-pipx install git+https://github.com/tens1x/podscribe.git
+# 2. 安装 PodScribe
+pipx install git+https://github.com/tens1x/podcast-transform-.git
 ```
 
-安装完成后直接运行：
+## 使用
 
 ```bash
 podscribe
 ```
 
-首次运行 `podscribe` 时会引导你配置 API Key。
+首次运行会引导你配置 API Key。之后进入交互式界面：
 
-`setup.sh` 仅适用于 macOS / Linux。Windows 用户请使用上面的 `pipx` 安装方式。
-
-<details>
-<summary>开发者 / 手动安装（适合需要改代码的贡献者）</summary>
-
-```bash
-git clone https://github.com/tens1x/podscribe.git
-cd podscribe
-python3 -m venv venv
-source venv/bin/activate
-pip install -e .
+```
+╭───────────────────────────────────────╮
+│  🎙  PodScribe  v0.1.0               │
+│  Podcast → Text, powered by AI       │
+│                                       │
+│  Format: txt + srt                    │
+│  Output: ~/PodScribe                  │
+│  AI post: on                          │
+╰───────────────────────────────────────╯
+? What would you like to do?
+› Start transcription
+  Edit config
+  View history
+  Quit
 ```
 
-首次运行 `podscribe` 时会引导你配置 API Key。
+### 转写流程
 
-</details>
+1. 选择 **Start transcription**
+2. 粘贴小宇宙播客链接（支持多个，逗号分隔）
+3. 自动完成：解析页面 → 转写音频 → AI 润色 → 保存文件
 
-## 使用方法
-
-安装后直接运行：
-
-```bash
-podscribe
-```
-
-程序会通过交互式界面引导你完成以下步骤：
-
-1. 粘贴小宇宙播客链接
-2. 选择是否保存音频文件
-3. 选择输出格式（TXT / SRT / 两者都要）
-4. 选择是否启用 AI 后处理
-5. 设置输出目录
-
-支持上下箭头选择、空格多选，操作体验类似现代 CLI 工具。
-
-## 子命令
-
-除了直接运行交互式主流程，也支持以下子命令：
+### 子命令
 
 ```bash
-podscribe config
-podscribe history
+podscribe config    # 直接进入设置
+podscribe history   # 查看历史记录
 ```
-
-- `podscribe config`：查看或修改当前配置
-- `podscribe history`：查看历史转录记录
 
 ## 功能特性
 
-- 交互式 CLI 界面（上下选择、多选、彩色输出）
-- 支持 TXT 和 SRT 两种输出格式
-- AI 后处理（自动标点、分段，基于通义千问）
-- 任务中断自动恢复
-- 首次运行引导配置
+| 功能 | 说明 |
+|------|------|
+| 语音转文字 | Qwen3-ASR，支持中文（含方言）、英语等多语种 |
+| SRT 字幕 | 带句级时间戳，可直接用于视频字幕 |
+| AI 后处理 | 自动修标点、去语气词、分段落 |
+| 批量转写 | 一次粘贴多个链接，依次转写 |
+| 断点续传 | 中断后再次运行可恢复上次任务 |
+| 音频下载 | 可选保存原始音频文件到指定目录 |
+| 交互式界面 | 上下箭头选择、空格多选、彩色输出 |
 
-## 用完退出虚拟环境
+## 配置项
+
+在 **Edit config** 菜单中可修改：
+
+| 配置项 | 默认值 | 说明 |
+|--------|--------|------|
+| Output formats | txt + srt | 选择输出 TXT、SRT 或两者 |
+| Save audio | off | 是否保存原始音频文件 |
+| Audio directory | ~/PodScribe/audio | 音频保存路径 |
+| AI post-process | on | 是否用 LLM 润色转写结果 |
+| Output directory | ~/PodScribe | 转写结果保存路径 |
+
+## 安全说明
+
+- API Key 仅存储在本地 `~/.config/podscribe/config.json`
+- 所有 API 调用通过 HTTPS 加密传输
+- 音频文件 URL 由百炼平台处理，不经过第三方
+- `.gitignore` 已排除 `.env` 和配置文件，不会意外提交密钥
+
+## 开发
 
 ```bash
-deactivate
+git clone https://github.com/tens1x/podcast-transform-.git
+cd podcast-transform-
+pip install -e .
+podscribe
 ```
-
-如果你使用的是上面的 `pipx` 全局安装方式，则不需要激活或退出虚拟环境。
